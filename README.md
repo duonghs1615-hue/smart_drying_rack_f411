@@ -62,12 +62,14 @@ Sensors + Buttons
    SensorTask
        │
    sensorQueue
+       │
        ▼
    ControlTask
        │
        ├──► Servo
        │
    displayQueue
+       │
        ▼
    DisplayTask
        │

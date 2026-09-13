@@ -1,13 +1,14 @@
 using System;
 using Antmicro.Renode.Core;
 using Antmicro.Renode.Peripherals;
+using Antmicro.Renode.Peripherals.I2C;
 using Antmicro.Renode.Logging;
 
 namespace Antmicro.Renode.Peripherals.Miscellaneous
 {
-    public class HD44780Mock : IPeripheral, IGPIOReceiver
+    public class HD44780I2CMock : II2CPeripheral
     {
-        public HD44780Mock()
+        public HD44780I2CMock()
         {
             ddram = new char[0x80];
             Reset();
@@ -23,77 +24,80 @@ namespace Antmicro.Renode.Peripherals.Miscellaneous
             rs = false;
             enable = false;
 
-            d4 = false;
-            d5 = false;
-            d6 = false;
-            d7 = false;
-
             waitingForLowNibble = false;
             fourBitMode = false;
-            highNibble = 0;
 
+            highNibble = 0;
             address = 0;
         }
 
         /*
-         * GPIO mapping:
+         * PCF8574 mapping used by lcd.c:
          *
-         * 0 = RS
-         * 1 = E
-         * 2 = D4
-         * 3 = D5
-         * 4 = D6
-         * 5 = D7
+         * P0 -> RS
+         * P1 -> RW
+         * P2 -> EN
+         * P3 -> Backlight
+         * P4 -> D4
+         * P5 -> D5
+         * P6 -> D6
+         * P7 -> D7
          */
-        public void OnGPIO(int number, bool value)
+        public void Write(byte[] data)
         {
-            switch(number)
+            foreach(var value in data)
             {
-                case 0:
-                    rs = value;
-                    break;
-
-                case 1:
-                    // HD44780 chốt dữ liệu ở cạnh xuống của E
-                    if(enable && !value)
-                    {
-                        LatchNibble();
-                    }
-
-                    enable = value;
-                    break;
-
-                case 2:
-                    d4 = value;
-                    break;
-
-                case 3:
-                    d5 = value;
-                    break;
-
-                case 4:
-                    d6 = value;
-                    break;
-
-                case 5:
-                    d7 = value;
-                    break;
+                ProcessPCF8574Byte(value);
             }
         }
 
-        private void LatchNibble()
+        /*
+         * Firmware currently does not read data from the LCD.
+         * Return zeroes if a read is requested.
+         */
+        public byte[] Read(int count = 1)
         {
-            byte nibble = 0;
+            return new byte[count];
+        }
 
-            if(d4) nibble |= 0x01;
-            if(d5) nibble |= 0x02;
-            if(d6) nibble |= 0x04;
-            if(d7) nibble |= 0x08;
+        public void FinishTransmission()
+        {
+        }
+
+        private void ProcessPCF8574Byte(byte value)
+        {
+            bool newRs = (value & 0x01) != 0;
+            bool newEnable = (value & 0x04) != 0;
 
             /*
-             * HD44780 4-bit initialization:
-             * firmware sends 0x3, 0x3, 0x3, then 0x2 as single nibbles.
-             * Do not pair these nibbles as normal bytes.
+             * P4-P7 contain the LCD nibble.
+             */
+            byte nibble = (byte)((value >> 4) & 0x0F);
+
+            rs = newRs;
+
+            /*
+             * HD44780 latches data on the falling edge of EN.
+             */
+            if(enable && !newEnable)
+            {
+                LatchNibble(nibble);
+            }
+
+            enable = newEnable;
+        }
+
+        private void LatchNibble(byte nibble)
+        {
+            /*
+             * HD44780 initialization sequence:
+             *
+             * 0x3
+             * 0x3
+             * 0x3
+             * 0x2
+             *
+             * These are single nibbles and must not be paired.
              */
             if(!fourBitMode && !rs)
             {
@@ -106,7 +110,7 @@ namespace Antmicro.Renode.Peripherals.Miscellaneous
                 if(nibble == 0x02)
                 {
                     fourBitMode = true;
-                    waitingForLowNibble = false;
+                    waitingForLowNibibbleReset();
                     return;
                 }
             }
@@ -132,10 +136,15 @@ namespace Antmicro.Renode.Peripherals.Miscellaneous
             }
         }
 
+        private void waitingForLowNibibbleReset()
+        {
+            waitingForLowNibble = false;
+        }
+
         private void ProcessCommand(byte command)
         {
             /*
-             * Clear display
+             * Clear display.
              */
             if(command == 0x01)
             {
@@ -145,7 +154,7 @@ namespace Antmicro.Renode.Peripherals.Miscellaneous
             }
 
             /*
-             * Cursor home
+             * Cursor home.
              */
             if(command == 0x02)
             {
@@ -154,10 +163,10 @@ namespace Antmicro.Renode.Peripherals.Miscellaneous
             }
 
             /*
-             * Set DDRAM address
+             * Set DDRAM address.
              *
-             * 0x80 -> dòng 1
-             * 0xC0 -> dòng 2
+             * 0x80 -> line 1
+             * 0xC0 -> line 2
              */
             if((command & 0x80) != 0)
             {
@@ -166,26 +175,18 @@ namespace Antmicro.Renode.Peripherals.Miscellaneous
             }
 
             /*
-             * Các command khác như:
+             * Other commands used by this project:
              *
-             * 0x28 4-bit / 2-line
-             * 0x0C display ON
-             * 0x06 entry mode
+             * 0x28 -> 4-bit, 2-line
+             * 0x0C -> display ON
+             * 0x06 -> increment cursor
              *
-             * không cần mô phỏng chi tiết cho project này.
+             * No detailed simulation is required for them.
              */
         }
 
         private void ProcessData(byte data)
         {
-            /*
-             * DDRAM dòng 1:
-             * 0x00 -> 0x0F
-             *
-             * DDRAM dòng 2:
-             * 0x40 -> 0x4F
-             */
-
             if(address <= 0x0F)
             {
                 ddram[address] = (char)data;
@@ -217,9 +218,9 @@ namespace Antmicro.Renode.Peripherals.Miscellaneous
         }
 
         /*
-         * Gõ trong Renode:
+         * Renode command:
          *
-         * gpioPortB.LCD16x2 Show
+         * lcdI2C Show
          */
         public void Show()
         {
@@ -235,11 +236,6 @@ namespace Antmicro.Renode.Peripherals.Miscellaneous
 
         private bool rs;
         private bool enable;
-
-        private bool d4;
-        private bool d5;
-        private bool d6;
-        private bool d7;
 
         private bool waitingForLowNibble;
         private bool fourBitMode;

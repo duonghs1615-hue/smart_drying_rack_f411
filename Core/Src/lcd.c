@@ -1,82 +1,90 @@
 #include "lcd.h"
 #include "main.h"
 
+/*
+ * LCD1602 + I2C backpack PCF8574
+ *
+ * Common mapping:
+ * P0 -> RS
+ * P1 -> RW
+ * P2 -> EN
+ * P3 -> Backlight
+ * P4 -> D4
+ * P5 -> D5
+ * P6 -> D6
+ * P7 -> D7
+ */
 
-#define LCD_PORT       GPIOB
+extern I2C_HandleTypeDef hi2c1;
 
-#define LCD_RS_PIN     GPIO_PIN_8
-#define LCD_EN_PIN     GPIO_PIN_9
+/*
+ * STM32 HAL expects the 7-bit I2C address shifted left by 1.
+ *
+ * Common LCD backpack address: 0x27
+ * If the LCD does not respond, the real address may be 0x3F
+ * or another value.
+ */
+#define LCD_I2C_ADDR       (0x27U << 1)
 
-#define LCD_D4_PIN     GPIO_PIN_12
-#define LCD_D5_PIN     GPIO_PIN_13
-#define LCD_D6_PIN     GPIO_PIN_14
-#define LCD_D7_PIN     GPIO_PIN_15
+#define LCD_RS             0x01U
+#define LCD_EN             0x04U
+#define LCD_BACKLIGHT      0x08U
 
 
-static void LCD_EnablePulse(void)
+static void LCD_I2C_Write(uint8_t data)
 {
-    HAL_GPIO_WritePin(
-        LCD_PORT,
-        LCD_EN_PIN,
-        GPIO_PIN_SET
+    HAL_I2C_Master_Transmit(
+        &hi2c1,
+        LCD_I2C_ADDR,
+        &data,
+        1U,
+        HAL_MAX_DELAY
     );
-
-    for(volatile uint32_t i = 0; i < 100U; i++)
-    {
-    }
-
-    HAL_GPIO_WritePin(
-        LCD_PORT,
-        LCD_EN_PIN,
-        GPIO_PIN_RESET
-    );
-
-    for(volatile uint32_t i = 0; i < 100U; i++)
-    {
-    }
 }
 
 
-static void LCD_SendNibble(uint8_t data)
+static void LCD_EnablePulse(uint8_t data)
 {
-    HAL_GPIO_WritePin(
-        LCD_PORT,
-        LCD_D4_PIN,
-        (data & 0x01U) ? GPIO_PIN_SET : GPIO_PIN_RESET
-    );
+    LCD_I2C_Write(data | LCD_EN);
+    HAL_Delay(1U);
 
-    HAL_GPIO_WritePin(
-        LCD_PORT,
-        LCD_D5_PIN,
-        (data & 0x02U) ? GPIO_PIN_SET : GPIO_PIN_RESET
-    );
+    LCD_I2C_Write(data & ~LCD_EN);
+    HAL_Delay(1U);
+}
 
-    HAL_GPIO_WritePin(
-        LCD_PORT,
-        LCD_D6_PIN,
-        (data & 0x04U) ? GPIO_PIN_SET : GPIO_PIN_RESET
-    );
 
-    HAL_GPIO_WritePin(
-        LCD_PORT,
-        LCD_D7_PIN,
-        (data & 0x08U) ? GPIO_PIN_SET : GPIO_PIN_RESET
-    );
+static void LCD_SendNibble(uint8_t data, uint8_t rs)
+{
+    uint8_t output;
 
-    LCD_EnablePulse();
+    /*
+     * data only contains the lower 4 bits.
+     * Shift them to P4-P7 of the PCF8574.
+     */
+    output = (uint8_t)((data & 0x0FU) << 4U);
+
+    /*
+     * Keep LCD backlight ON.
+     */
+    output |= LCD_BACKLIGHT;
+
+    /*
+     * RS = 1 -> data
+     * RS = 0 -> command
+     */
+    if(rs != 0U)
+    {
+        output |= LCD_RS;
+    }
+
+    LCD_EnablePulse(output);
 }
 
 
 static void LCD_SendCommand(uint8_t command)
 {
-    HAL_GPIO_WritePin(
-        LCD_PORT,
-        LCD_RS_PIN,
-        GPIO_PIN_RESET
-    );
-
-    LCD_SendNibble(command >> 4U);
-    LCD_SendNibble(command & 0x0FU);
+    LCD_SendNibble(command >> 4U, 0U);
+    LCD_SendNibble(command & 0x0FU, 0U);
 
     HAL_Delay(2U);
 }
@@ -84,14 +92,8 @@ static void LCD_SendCommand(uint8_t command)
 
 static void LCD_SendData(uint8_t data)
 {
-    HAL_GPIO_WritePin(
-        LCD_PORT,
-        LCD_RS_PIN,
-        GPIO_PIN_SET
-    );
-
-    LCD_SendNibble(data >> 4U);
-    LCD_SendNibble(data & 0x0FU);
+    LCD_SendNibble(data >> 4U, 1U);
+    LCD_SendNibble(data & 0x0FU, 1U);
 }
 
 
@@ -124,32 +126,47 @@ static void LCD_SetCursor(uint8_t row, uint8_t column)
 
 void LCD_Init(void)
 {
-    HAL_Delay(40U);
+    /*
+     * Wait for LCD power-up.
+     */
+    HAL_Delay(50U);
 
-    HAL_GPIO_WritePin(
-        LCD_PORT,
-        LCD_RS_PIN | LCD_EN_PIN,
-        GPIO_PIN_RESET
-    );
+    /*
+     * Initial state:
+     * backlight ON, RS = 0, EN = 0.
+     */
+    LCD_I2C_Write(LCD_BACKLIGHT);
 
-    LCD_SendNibble(0x03U);
+    /*
+     * HD44780 initialization sequence.
+     */
+    LCD_SendNibble(0x03U, 0U);
     HAL_Delay(5U);
 
-    LCD_SendNibble(0x03U);
+    LCD_SendNibble(0x03U, 0U);
     HAL_Delay(1U);
 
-    LCD_SendNibble(0x03U);
+    LCD_SendNibble(0x03U, 0U);
     HAL_Delay(1U);
 
-    LCD_SendNibble(0x02U);
+    /*
+     * Switch to 4-bit mode.
+     */
+    LCD_SendNibble(0x02U, 0U);
 
-    /* 4-bit, 2-line */
+    /*
+     * 4-bit interface, 2 lines, 5x8 font.
+     */
     LCD_SendCommand(0x28U);
 
-    /* Display ON, cursor OFF */
+    /*
+     * Display ON, cursor OFF, blink OFF.
+     */
     LCD_SendCommand(0x0CU);
 
-    /* Increment cursor */
+    /*
+     * Entry mode: increment cursor.
+     */
     LCD_SendCommand(0x06U);
 
     LCD_Clear();

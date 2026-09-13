@@ -38,34 +38,34 @@ $(wildcard ../makefile.init) \
 $(wildcard ../makefile.targets) \
 
 
-BUILD_ARTIFACT_NAME := smart_drying_rack_f411
+BUILD_ARTIFACT_NAME := smart_drying_rack_f411_i2c
 BUILD_ARTIFACT_EXTENSION := elf
 BUILD_ARTIFACT_PREFIX :=
 BUILD_ARTIFACT := $(BUILD_ARTIFACT_PREFIX)$(BUILD_ARTIFACT_NAME)$(if $(BUILD_ARTIFACT_EXTENSION),.$(BUILD_ARTIFACT_EXTENSION),)
 
 # Add inputs and outputs from these tool invocations to the build variables 
 EXECUTABLES += \
-smart_drying_rack_f411.elf \
+smart_drying_rack_f411_i2c.elf \
 
 MAP_FILES += \
-smart_drying_rack_f411.map \
+smart_drying_rack_f411_i2c.map \
 
 SIZE_OUTPUT += \
 default.size.stdout \
 
 OBJDUMP_LIST += \
-smart_drying_rack_f411.list \
+smart_drying_rack_f411_i2c.list \
 
 
 # All Target
 all: main-build
 
 # Main-build Target
-main-build: smart_drying_rack_f411.elf secondary-outputs
+main-build: smart_drying_rack_f411_i2c.elf secondary-outputs
 
 # Tool invocations
-smart_drying_rack_f411.elf smart_drying_rack_f411.map: $(OBJS) $(USER_OBJS) C:\Users\Admin\Documents\smart_drying_rack_f411\STM32F411CEUX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-gcc -o "smart_drying_rack_f411.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m4 -T"C:\Users\Admin\Documents\smart_drying_rack_f411\STM32F411CEUX_FLASH.ld" --specs=nosys.specs -Wl,-Map="smart_drying_rack_f411.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
+smart_drying_rack_f411_i2c.elf smart_drying_rack_f411_i2c.map: $(OBJS) $(USER_OBJS) C:\Users\Admin\Documents\smart_drying_rack_f411_i2c\STM32F411CEUX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
+	arm-none-eabi-gcc -o "smart_drying_rack_f411_i2c.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m4 -T"C:\Users\Admin\Documents\smart_drying_rack_f411_i2c\STM32F411CEUX_FLASH.ld" --specs=nosys.specs -Wl,-Map="smart_drying_rack_f411_i2c.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
 	@echo 'Finished building target: $@'
 	@echo ' '
 
@@ -74,14 +74,14 @@ default.size.stdout: $(EXECUTABLES) makefile objects.list $(OPTIONAL_TOOL_DEPS)
 	@echo 'Finished building: $@'
 	@echo ' '
 
-smart_drying_rack_f411.list: $(EXECUTABLES) makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-objdump -h -S $(EXECUTABLES) > "smart_drying_rack_f411.list"
+smart_drying_rack_f411_i2c.list: $(EXECUTABLES) makefile objects.list $(OPTIONAL_TOOL_DEPS)
+	arm-none-eabi-objdump -h -S $(EXECUTABLES) > "smart_drying_rack_f411_i2c.list"
 	@echo 'Finished building: $@'
 	@echo ' '
 
 # Other Targets
 clean:
-	-$(RM) default.size.stdout smart_drying_rack_f411.elf smart_drying_rack_f411.list smart_drying_rack_f411.map
+	-$(RM) default.size.stdout smart_drying_rack_f411_i2c.elf smart_drying_rack_f411_i2c.list smart_drying_rack_f411_i2c.map
 	-@echo ' '
 
 secondary-outputs: $(SIZE_OUTPUT) $(OBJDUMP_LIST)

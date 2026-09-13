@@ -27,19 +27,6 @@ ManualInButton: Miscellaneous.Button @ gpioPortB
 ManualOutButton: Miscellaneous.Button @ gpioPortB
     -> gpioPortB@2
 
-// LCD 16x2 (HD44780, 4-bit mode)
-// PB8  -> RS  (LCD input 0)
-// PB9  -> E   (LCD input 1)
-// PB12 -> D4  (LCD input 2)
-// PB13 -> D5  (LCD input 3)
-// PB14 -> D6  (LCD input 4)
-// PB15 -> D7  (LCD input 5)
-LCD16x2: Miscellaneous.HD44780Mock @ gpioPortB
-
-gpioPortB:
-    8  -> LCD16x2@0
-    9  -> LCD16x2@1
-    12 -> LCD16x2@2
-    13 -> LCD16x2@3
-    14 -> LCD16x2@4
-    15 -> LCD16x2@5
+// LCD1602 + I2C backpack
+// Firmware uses I2C1 and address 0x27
+LCD16x2: Miscellaneous.HD44780I2CMock @ i2c1 0x27

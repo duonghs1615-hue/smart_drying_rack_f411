@@ -1,5 +1,5 @@
 # Smart Clothes Drying Rack using STM32F411CEU6 and FreeRTOS
-
+This contains the LCD1602 I2C version of the smart drying rack project.
 An embedded smart clothes drying rack system developed using **STM32F411CEU6** and **FreeRTOS**.
 
 The system automatically extends or retracts the clothes rack based on rainfall and ambient light conditions. It also supports manual control using push buttons.

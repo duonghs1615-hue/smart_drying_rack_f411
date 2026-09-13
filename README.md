@@ -1,6 +1,6 @@
 ## LCD1602 I2C Version
 
-This branch is an extended version of the project using an LCD1602 with an I2C backpack instead of the parallel GPIO interface.
+This branch contains the LCD1602 I2C version of the smart drying rack project.
 
 ### Changes
 
@@ -14,7 +14,7 @@ This branch is an extended version of the project using an LCD1602 with an I2C b
 ### LCD Connection
 
 | LCD I2C | STM32F411 |
-|---|---|
+| --- | --- |
 | SCL | PB8 |
 | SDA | PB7 |
 | GND | GND |
@@ -28,14 +28,88 @@ Simulation files:
 
 - `HD44780Mock.cs`
 - `drying_rack_f411.repl`
-- `Debug/smart_drying_rack_f411.elf`
+- `Debug/smart_drying_rack_f411_i2c.elf`
 
-Run in Renode:
+Run the simulation with:
 
 ```text
 include @C:\Users\Admin\Documents\smart_drying_rack_f411_i2c\HD44780Mock.cs
 mach create
 machine LoadPlatformDescription @C:\Users\Admin\Documents\smart_drying_rack_f411_i2c\drying_rack_f411.repl
-sysbus LoadELF @C:\Users\Admin\Documents\smart_drying_rack_f411_i2c\Debug\smart_drying_rack_f411.elf
+sysbus LoadELF @C:\Users\Admin\Documents\smart_drying_rack_f411_i2c\Debug\smart_drying_rack_f411_i2c.elf
 showAnalyzer sysbus.usart2
 start
+```
+
+### Show LCD Content
+
+To display the current LCD1602 content in Renode:
+
+```text
+i2c1.LCD16x2 Show
+```
+
+Example:
+
+```text
++----------------+
+|MODE: AUTO      |
+|R:IN  E:DARK    |
++----------------+
+```
+
+### Check Servo PWM
+
+The servo is still controlled by TIM4 Channel 1 and uses the same configuration as the parallel LCD version.
+
+To read the TIM4 CCR1 register:
+
+```text
+sysbus ReadDoubleWord 0x40000834
+```
+
+Expected values:
+
+```text
+RACK_IN  -> 0x3E8 = 1000 us = 1.0 ms
+RACK_OUT -> 0x5DC = 1500 us = 1.5 ms
+```
+
+### Renode Input Control
+
+Rain sensor:
+
+```text
+gpioPortA.RainSensor Press
+gpioPortA.RainSensor Release
+```
+
+Light sensor:
+
+```text
+gpioPortA.LightSensor Press
+gpioPortA.LightSensor Release
+```
+
+Mode button:
+
+```text
+gpioPortB.ModeButton Press
+gpioPortB.ModeButton Release
+```
+
+Manual IN button:
+
+```text
+gpioPortB.ManualInButton Press
+gpioPortB.ManualInButton Release
+```
+
+Manual OUT button:
+
+```text
+gpioPortB.ManualOutButton Press
+gpioPortB.ManualOutButton Release
+```
+
+Only the LCD communication method is changed in this version. The FreeRTOS tasks, message queues, sensor processing, control logic, UART, and servo control remain the same as in the parallel LCD version.

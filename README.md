@@ -1,7 +1,8 @@
 ## LCD1602 I2C Version
 
 This branch contains the LCD1602 I2C version of the smart drying rack project.
-
+The LCD1602 I2C backpack is based on the PCF8574 I/O expander.
+The simulation uses I2C address `0x27`.
 ### Changes
 
 - LCD1602 communicates through I2C1.
